@@ -27,6 +27,20 @@ class SagePayFormHelperTest < Test::Unit::TestCase
     assert_field 'BillingSurname', 'Fauser'
     assert_field 'CustomerEMail', 'cody@example.com'
   end
+
+  def test_customer_send_email
+    @helper.customer :first_name => 'Cody', :last_name => 'Fauser', :email => 'cody@example.com', :send_email_confirmation => true
+    with_crypt_plaintext do |plain|
+      assert plain.include?('cody@example.com')
+    end
+  end
+
+  def test_customer_default_no_email
+    @helper.customer :first_name => 'Cody', :last_name => 'Fauser', :email => 'cody@example.com'
+    with_crypt_plaintext do |plain|
+      assert !plain.include?('cody@example.com')
+    end
+  end
   
   def test_us_address_mapping
     @helper.billing_address(
@@ -100,17 +114,19 @@ class SagePayFormHelperTest < Test::Unit::TestCase
   end
 
   def test_crypt_field
-    assert_crypt 'FgEOFyoVEQ1JOC4LHV5AZz0tDBYcTRsbCws5SEwBAhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFk=', 'SomeSeed', 42
-    assert_crypt 'AQcFFCoVEQ1JOC4LHV5AZz0tDBYcTRsbCws5SEwBAhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFk=', 'DiffSeed', 42
-    assert_crypt 'FgEOFyoVEQ1JLyYKDF9GDnBAU0JfMwEbHQslBgAMZ2ABSDUXFxQbGzsWCAodVA9cNwoGAFRFRFk=', 'SomeSeed', 1337
+    if defined?(RUBY_ENGINE) && RUBY_ENGINE !~ /rbx|jruby/ # srand behaviour is incompatible on Rubinius/JRuby
+      assert_crypt 'FgEOFyoVEQ1JOC4LHV5AZz0tDBYcTRsbCws5SEwBAhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFk=', 'SomeSeed', 42
+      assert_crypt 'AQcFFCoVEQ1JOC4LHV5AZz0tDBYcTRsbCws5SEwBAhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFk=', 'DiffSeed', 42
+      assert_crypt 'FgEOFyoVEQ1JLyYKDF9GDnBAU0JfMwEbHQslBgAMZ2ABSDUXFxQbGzsWCAodVA9cNwoGAFRFRFk=', 'SomeSeed', 1337
 
-    assert_crypt 'Fg8PBj8FGgobByQLKlReViYaEDMrEVI/CgAvCgtlSnAqCgZPFgIQDB1DflVJF3FGNxwGHBoJSTw8Km0kFF5HXTFTVlxJQA==',             'SaltFunctionSelectsARandomSeedLength', 42
-    assert_crypt 'Fg8PBj8FGgobByQLKlReViYaEDMrERoNAAMYABxVfhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFlJOC4LHV5AZz0tDBYcTRsbCws5SEwBAg==', 'SaltFunctionSelectsARandomSeedLength', 1234
+      assert_crypt 'Fg8PBj8FGgobByQLKlReViYaEDMrEVI/CgAvCgtlSnAqCgZPFgIQDB1DflVJF3FGNxwGHBoJSTw8Km0kFF5HXTFTVlxJQA==',             'SaltFunctionSelectsARandomSeedLength', 42
+      assert_crypt 'Fg8PBj8FGgobByQLKlReViYaEDMrERoNAAMYABxVfhUGGxEAHB4XEFI7GCFfcF9cMAAXT0xeRFlJOC4LHV5AZz0tDBYcTRsbCws5SEwBAg==', 'SaltFunctionSelectsARandomSeedLength', 1234
+    end
   end
 
   private
   
-  def assert_crypt(value, sr_seed = 'RandomRandomRandomRandomRandomRandomRandom', rand_seed = 42)
+  def assert_crypt(value, sr_seed, rand_seed)
     SecureRandom.expects(:base64).returns(sr_seed)
     srand(rand_seed)
 
